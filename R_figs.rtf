@@ -1,0 +1,198 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2513
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 ArialMT;}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red255\green255\blue255;}
+{\*\expandedcolortbl;;\cssrgb\c13333\c13333\c13333;\cssrgb\c100000\c100000\c100000;}
+\margl1440\margr1440\vieww18900\viewh13360\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs20 \cf2 \cb3 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 library(ggplot2)\
+\
+data = read.table('C:/Users/Ryan/Desktop/Thesis_research/Mapping/New Approach/Wheat_hueristic/Hist.csv', header = TRUE, sep = ",", dec = ".");\
+\
+frame = data.frame(data$ID)\
+frame$ID = frame$data.ID\
+frame = frame[-1]\
+frame$bin = c(data$binBottom)\
+frame$count = c(data$WW)\
+frame\
+\
+q1 = c()\
+q2 = c()\
+q3 = c()\
+q4 = c()\
+q5 = c()\
+\
+loop = c("Z9Nov", "Z9Dec", "Z9Jan", "Z9Feb", "Z9Mar", "Z9Apr", "Z9May")\
+\
+for(i in loop)\{\
+\'a0 new = subset(frame, ID == i)\
+\'a0 new$sum = sum(new$count)\
+\'a0 new$rep = (new$count/new$sum)*10000\
+\'a0 plt <- new[rep(row.names(new), new$rep), 2:2]\
+\'a0\
+\'a0 first = quantile(plt,0.2)\
+\'a0 second = quantile(plt,0.4)\
+\'a0 third = quantile(plt,0.5)\
+\'a0 fourth = quantile(plt,0.6)\
+\'a0 fifth = quantile(plt,0.8)\
+\'a0\
+\'a0 q1 = append(q1,first)\
+\'a0 q2 = append(q2,second)\
+\'a0 q3 = append(q3,third)\
+\'a0 q4 = append(q4,fourth)\
+\'a0 q5 = append(q5,fifth)\
+\}\
+\
+months = c("Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May")\
+crop = c(rep("Winter Wheat",7))\
+\
+vector = cbind(cbind(cbind(cbind(data.frame(months), crop), q1), q2), q3)\
+\
+vector$crop = factor(vector$crop)\
+vector$months = factor(vector$months)\
+\
+all = vector\
+\
+frame = data.frame(data$ID)\
+frame$ID = frame$data.ID\
+frame = frame[-1]\
+frame$bin = c(data$binBottom)\
+frame$count = c(data$Rye)\
+frame\
+\
+q1 = c()\
+q2 = c()\
+q3 = c()\
+q4 = c()\
+q5 = c()\
+\
+loop = c("Z9Nov", "Z9Dec", "Z9Jan", "Z9Feb", "Z9Mar", "Z9Apr", "Z9May")\
+\
+for(i in loop)\{\
+\'a0 new = subset(frame, ID == i)\
+\'a0 new$sum = sum(new$count)\
+\'a0 new$rep = (new$count/new$sum)*10000\
+\'a0 plt <- new[rep(row.names(new), new$rep), 2:2]\
+\'a0\
+\'a0 first = quantile(plt,0.2)\
+\'a0 second = quantile(plt,0.4)\
+\'a0 third = quantile(plt,0.5)\
+\'a0 fourth = quantile(plt,0.6)\
+\'a0 fifth = quantile(plt,0.8)\
+\'a0\
+\'a0 q1 = append(q1,first)\
+\'a0 q2 = append(q2,second)\
+\'a0 q3 = append(q3,third)\
+\'a0 q4 = append(q4,fourth)\
+\'a0 q5 = append(q5,fifth)\
+\}\
+\
+months = c("Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May")\
+crop = c(rep("Rye",7))\
+\
+vector = cbind(cbind(cbind(cbind(data.frame(months), crop), q1), q2), q3)\
+\
+vector$crop = factor(vector$crop)\
+vector$months = factor(vector$months)\
+\
+all = rbind(all, vector)\
+\
+frame = data.frame(data$ID)\
+frame$ID = frame$data.ID\
+frame = frame[-1]\
+frame$bin = c(data$binBottom)\
+frame$count = c(data$Corn)\
+frame\
+\
+q1 = c()\
+q2 = c()\
+q3 = c()\
+q4 = c()\
+q5 = c()\
+\
+loop = c("Z9Nov", "Z9Dec", "Z9Jan", "Z9Feb", "Z9Mar", "Z9Apr", "Z9May")\
+\
+for(i in loop)\{\
+\'a0 new = subset(frame, ID == i)\
+\'a0 new$sum = sum(new$count)\
+\'a0 new$rep = (new$count/new$sum)*10000\
+\'a0 plt <- new[rep(row.names(new), new$rep), 2:2]\
+\'a0\
+\'a0 first = quantile(plt,0.2)\
+\'a0 second = quantile(plt,0.4)\
+\'a0 third = quantile(plt,0.5)\
+\'a0 fourth = quantile(plt,0.6)\
+\'a0 fifth = quantile(plt,0.8)\
+\'a0\
+\'a0 q1 = append(q1,first)\
+\'a0 q2 = append(q2,second)\
+\'a0 q3 = append(q3,third)\
+\'a0 q4 = append(q4,fourth)\
+\'a0 q5 = append(q5,fifth)\
+\}\
+\
+months = c("Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May")\
+crop = c(rep("Corn",7))\
+\
+vector = cbind(cbind(cbind(cbind(data.frame(months), crop), q1), q2), q3)\
+\
+vector$crop = factor(vector$crop)\
+vector$months = factor(vector$months)\
+\
+all = rbind(all, vector)\
+\
+frame = data.frame(data$ID)\
+frame$ID = frame$data.ID\
+frame = frame[-1]\
+frame$bin = c(data$binBottom)\
+frame$count = c(data$Soy)\
+frame\
+\
+q1 = c()\
+q2 = c()\
+q3 = c()\
+q4 = c()\
+q5 = c()\
+\
+loop = c("Z9Nov", "Z9Dec", "Z9Jan", "Z9Feb", "Z9Mar", "Z9Apr", "Z9May")\
+\
+for(i in loop)\{\
+\'a0 new = subset(frame, ID == i)\
+\'a0 new$sum = sum(new$count)\
+\'a0 new$rep = (new$count/new$sum)*10000\
+\'a0 plt <- new[rep(row.names(new), new$rep), 2:2]\
+\'a0\
+\'a0 first = quantile(plt,0.2)\
+\'a0 second = quantile(plt,0.4)\
+\'a0 third = quantile(plt,0.5)\
+\'a0 fourth = quantile(plt,0.6)\
+\'a0 fifth = quantile(plt,0.8)\
+\'a0\
+\'a0 q1 = append(q1,first)\
+\'a0 q2 = append(q2,second)\
+\'a0 q3 = append(q3,third)\
+\'a0 q4 = append(q4,fourth)\
+\'a0 q5 = append(q5,fifth)\
+\}\
+\
+months = c("Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May")\
+crop = c(rep("Soy",7))\
+\
+vector = cbind(cbind(cbind(cbind(data.frame(months), crop), q1), q2), q3)\
+\
+vector$crop = factor(vector$crop)\
+vector$months = factor(vector$months)\
+\
+all = rbind(all, vector)\
+\
+#To order months correctly\
+all$months <- as.character(all$months)\
+all$months <- factor(all$months, levels=unique(all$months))\
+\
+p<-ggplot(data=all, aes(x=months, y=q2, group = crop, colour = crop)) + geom_point(aes(shape = crop)) + geom_line(size = 1) + ylim(0.1,0.8)\
+#p<-p+geom_ribbon(aes(ymin=q1, ymax=q3), linetype = 2, alpha=0.5)\
+p <- p+ labs(x = "", y = "Median NDVI", title = "Z9") + theme_bw() + theme(axis.text.y = element_text(size=10, face="bold")) + theme(axis.title.y = element_text(size=14, face="bold")) + theme(axis.text.x = element_text(size=10, face="bold")) + theme(legend.position="none")\
+p\
+}
