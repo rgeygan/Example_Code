@@ -1,13 +1,6 @@
 import attr
 
-import itertools
-import os
-import numpy as np
-import geopandas as gpd
-import pandas as pd
-
-from joblib import Parallel, delayed
-from tqdm import tqdm
+##import other libs...
 
 ## NDA Prevents me from showing internals of code structure - this is an example of how to construct class structures
 ## with class methods
