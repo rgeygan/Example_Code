@@ -1,0 +1,576 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2513
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww23560\viewh13900\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 //year, state, clu, description\
+\
+//year to analyze\
+var year = 2017;\
+//state\
+var state = tiger.filter(ee.Filter.eq('NAME', 'Iowa'));\
+\
+//functions and ops to generate cumulative GDD raster\
+var avg = function(image) \{\
+    var avg = image.expression('(B1 + B2) / 2',\
+    \{B1: image.select('tmax'),\
+    B2: image.select('tmin')\});\
+    return avg.select([0], ['avg'])\};\
+    \
+var base = function(image) \{\
+    var base = image.gt(0).toFloat()\
+    return base.select([0], ['base'])\};\
+\
+//year 1\
+var DM = ee.ImageCollection('NASA/ORNL/DAYMET_V3')\
+              .filterBounds(Study_Area)\
+              .filterDate(ee.Date.fromYMD(year,11,1),ee.Date.fromYMD(year+1,6,1))\
+              .map(avg);\
+              \
+var mask = DM.map(base);\
+var innerJoin = ee.Join.inner();\
+\
+var filterTimeEq = ee.Filter.equals(\{\
+  leftField: 'system:index',\
+  rightField: 'system:index'\
+\});\
+\
+var innerJoinedMODIS = innerJoin.apply(DM, mask, filterTimeEq);\
+\
+var joined = innerJoinedMODIS.map(function(feature) \{\
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));\
+\});\
+\
+var listOfImages =joined.toList(joined.size());\
+\
+var list = ee.ImageCollection.fromImages(listOfImages);\
+\
+var pos = function(image) \{\
+    var pos = image.expression('B1 * B2',\
+    \{B1: image.select('avg'),\
+    B2: image.select('base')\});\
+    return pos.select([0], ['pos_t'])\};\
+    \
+var degrees = list.map(pos);\
+var gddfirst = degrees.reduce(ee.Reducer.sum()).clip(Study_Area);\
+\
+//GDD means aggregated by county in Study Area\
+var subs = gddfirst.reduceRegions(\{\
+        collection: Study_Area,\
+        reducer: ee.Reducer.mean(),\
+        scale: 1000\
+\})\
+//image of county GDD means\
+var imsubs1 = subs.reduceToImage(\{\
+      properties: ['mean'],\
+      reducer: ee.Reducer.first()\})\
+\
+//year 2   \
+var DM = ee.ImageCollection('NASA/ORNL/DAYMET_V3')\
+              .filterBounds(Study_Area)\
+              .filterDate(ee.Date.fromYMD(year+1,11,1),ee.Date.fromYMD(year+2,6,1))\
+              .map(avg);\
+              \
+var mask = DM.map(base);\
+var innerJoin = ee.Join.inner();\
+\
+var filterTimeEq = ee.Filter.equals(\{\
+  leftField: 'system:index',\
+  rightField: 'system:index'\
+\});\
+\
+var innerJoinedMODIS = innerJoin.apply(DM, mask, filterTimeEq);\
+\
+var joined = innerJoinedMODIS.map(function(feature) \{\
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));\
+\});\
+\
+var listOfImages =joined.toList(joined.size());\
+\
+var list = ee.ImageCollection.fromImages(listOfImages);\
+\
+var pos = function(image) \{\
+    var pos = image.expression('B1 * B2',\
+    \{B1: image.select('avg'),\
+    B2: image.select('base')\});\
+    return pos.select([0], ['pos_t'])\};\
+    \
+var degrees = list.map(pos);\
+var gddfirst = degrees.reduce(ee.Reducer.sum()).clip(Study_Area);\
+\
+//GDD means aggregated by county in Study Area\
+var subs = gddfirst.reduceRegions(\{\
+        collection: Study_Area,\
+        reducer: ee.Reducer.mean(),\
+        scale: 1000\
+\})\
+//image of county GDD means\
+var imsubs2 = subs.reduceToImage(\{\
+      properties: ['mean'],\
+      reducer: ee.Reducer.first()\})      \
+\
+var imsubs = imsubs1.add(imsubs2).divide(2)\
+\
+\
+//GDD thresholds for zonal stats\
+var zones = imsubs.gt(0)\
+                    .add(imsubs.gt(681))\
+                    .add(imsubs.gt(824))\
+                    .add(imsubs.gt(967))\
+                    .add(imsubs.gt(1181))\
+                    .add(imsubs.gt(1396))\
+                    .add(imsubs.gt(1539))\
+                    .add(imsubs.gt(1750))\
+                    .add(imsubs.gt(2000))\
+zones = zones.updateMask(zones.neq(0));\
+\
+// Convert the zones of the thresholded nightlights to vectors.\
+var vectors = zones.addBands(gddfirst).reduceToVectors(\{\
+  geometry: Study_Area,\
+  crs: imsubs.projection(),\
+  scale: 1000,\
+  geometryType: 'polygon',\
+  eightConnected: false,\
+  labelProperty: 'zone',\
+  reducer: ee.Reducer.mean()\
+\});\
+\
+//geometry to limit ndvi time series, CDL mask, and wheat heuristic\
+var county = Study_Area.filterBounds(state);\
+\
+\
+var getQABits = function(image, start, end, newName) \{\
+    // Compute the bits we need to extract.\
+    var pattern = 0;\
+    for (var i = start; i <= end; i++) \{\
+       pattern += Math.pow(2, i);\
+    \}\
+    // Return a single band image of the extracted QA bits, giving the band\
+    // a new name.\
+    return image.select([0], [newName])\
+                  .bitwiseAnd(pattern)\
+                  .rightShift(start);\
+\};\
+\
+\
+var maskClouds = function(image) \{\
+  var pixelQA = image.select('pixel_qa');\
+  var cloud = getQABits(pixelQA, 5, 5, 'cloud');\
+  var shadow = getQABits(pixelQA, 3, 3, 'cloud_shadow');\
+  //var cloud = getQABits(pixelQA, 1, 1, 'internal_cloud_flag');\
+  return image.updateMask(cloud.eq(0)).updateMask(shadow.eq(0))\
+\}\
+\
+var addNDVI = function(image) \{\
+  var ndvi = image.normalizedDifference(['nir','red']);\
+  return image.addBands(ndvi.select([0], ['ndvi']))\
+\}\
+\
+var limit = function(image) \{\
+  var ndvi = image.select(['ndvi'])\
+  var bound = ndvi.lte(0.98).and(ndvi.gte(0.1));\
+  var mult = ndvi.updateMask(bound)\
+  return image.addBands(mult.select([0], ['bounded']))\
+\}\
+\
+//year to analyze\
+var year = 2017;\
+var months = [11,12,1,2,3,4,5]\
+\
+var emp = ee.Image()\
+\
+var stack = emp.addBands(months.map(function(month) \
+  \{\
+      //first year\
+      var L8coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR')\
+          .filterBounds(county)\
+          .filterDate(ee.Date.fromYMD(year,month,1),ee.Date.fromYMD(year,month,28))\
+          .map(maskClouds)\
+          .select(['B2','B3','B4','B5','B6'],['blue','green','red','nir','swir1'])\
+      \
+      var L7coll = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR')\
+          .filterBounds(county)\
+          .filterDate(ee.Date.fromYMD(year,month,1),ee.Date.fromYMD(year,month,28))\
+          .map(maskClouds)\
+          .select(['B1','B2','B3','B4','B5'],['blue','green','red','nir','swir1'])\
+      \
+      var L5coll = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR')\
+          .filterBounds(county)\
+          .filterDate(ee.Date.fromYMD(year,month,1),ee.Date.fromYMD(year,month,28))\
+          .map(maskClouds)\
+          .select(['B1','B2','B3','B4','B5'],['blue','green','red','nir','swir1'])\
+      \
+      var Coll1 = ee.ImageCollection(L8coll.merge(L7coll).merge(L5coll))\
+              .sort('system:time_start',true)\
+              .map(addNDVI)\
+              .map(limit)\
+              \
+      //next year\
+      var L8coll2 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR')\
+          .filterBounds(county)\
+          .filterDate(ee.Date.fromYMD(year+1,month,1),ee.Date.fromYMD(year+1,month,28))\
+          .map(maskClouds)\
+          .select(['B2','B3','B4','B5','B6'],['blue','green','red','nir','swir1'])\
+      \
+      var L7coll2 = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR')\
+          .filterBounds(county)\
+          .filterDate(ee.Date.fromYMD(year+1,month,1),ee.Date.fromYMD(year+1,month,28))\
+          .map(maskClouds)\
+          .select(['B1','B2','B3','B4','B5'],['blue','green','red','nir','swir1'])\
+      \
+      var L5coll2 = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR')\
+          .filterBounds(county)\
+          .filterDate(ee.Date.fromYMD(year+1,month,1),ee.Date.fromYMD(year+1,month,28))\
+          .map(maskClouds)\
+          .select(['B1','B2','B3','B4','B5'],['blue','green','red','nir','swir1'])\
+      \
+      var Coll2 = ee.ImageCollection(L8coll2.merge(L7coll2).merge(L5coll2))\
+              .sort('system:time_start',true)\
+              .map(addNDVI)\
+              .map(limit)        \
+      \
+      var combined = Coll1.merge(Coll2).max()\
+      var im = combined.select(['bounded'])\
+\
+return im\}))\
+\
+var out_bands = ['bounded','bounded_1','bounded_2','bounded_3','bounded_4','bounded_5','bounded_6']\
+var names = ['nov','dec','jan','feb','mar','apr','may']\
+\
+var stack = stack.select(out_bands, names)\
+\
+\
+//Crop Mask\
+var string = year.toString();\
+var foo = year+1;\
+var string2 = foo.toString();\
+var poo = year+2;\
+var string3 = poo.toString();\
+\
+// get cdl for intended year - MUST CHANGE YEARS MANUALLY!!\
+var cdl1 = ee.ImageCollection("USDA/NASS/CDL");\
+var cdl = ee.Image(cdl1.filter(ee.Filter.eq('system:index', string)).first()).select('cropland');\
+var CDL = ee.Image(cdl1.filter(ee.Filter.eq('system:index', string2)).first()).select('cropland');\
+var CDL2 = ee.Image(cdl1.filter(ee.Filter.eq('system:index', string3)).first()).select('cropland');\
+\
+//Get binary crop mask [corn/soy in this case] if needed\
+var cdl_mask = cdl.neq([21,22,23,24,26,27,28,36,37,81,82,83,87,88,92,111,112,121,122,123,124,131,141,142,143,152,176,190,195,225,226,230,231,232,233,234,235,236,237,238,239,240,241,254]).clip(county);\
+var CDL_mask = CDL.neq([21,22,23,24,26,27,28,36,37,81,82,83,87,88,92,111,112,121,122,123,124,131,141,142,143,152,176,190,195,225,226,230,231,232,233,234,235,236,237,238,239,240,241,254]).clip(county);\
+var CDL2_mask = CDL2.neq([21,22,23,24,26,27,28,36,37,81,82,83,87,88,92,111,112,121,122,123,124,131,141,142,143,152,176,190,195,225,226,230,231,232,233,234,235,236,237,238,239,240,241,254]).clip(county);\
+\
+\
+//sum bands to get binary mask for each year of winter crops + non ag vs summer crops\
+var bandNames = cdl_mask.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return cdl_mask.select(name).rename('count').toByte();\
+\}));\
+var cdl_mask = toCollection.sum().eq(44).toByte();\
+\
+var bandNames = CDL_mask.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return CDL_mask.select(name).rename('count').toByte();\
+\}));\
+var CDL_mask = toCollection.sum().eq(44).toByte();\
+\
+var bandNames = CDL2_mask.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return CDL2_mask.select(name).rename('count').toByte();\
+\}));\
+var CDL2_mask = toCollection.sum().eq(44).toByte();\
+\
+//combine three masks\
+var full_mask = cdl_mask.and(CDL_mask).and(CDL2_mask);\
+\
+\
+\
+//multi band image of ndvi monthly max values in subregion of study area\
+var ndvimaxnov = stack.select('nov');\
+\
+var ndvimaxfall = stack.select('dec')\
+                 .addBands(stack.select('jan'))\
+                 .clip(county);\
+\
+var ndvimaxspring = stack.select('feb')\
+                 .addBands(stack.select('mar'))\
+                 .addBands(stack.select('apr'))\
+                 .addBands(stack.select('may'))\
+                 .clip(county);\
+\
+var ndvimaxalt = stack.select('nov')\
+                 .addBands(stack.select('dec'))\
+                 .addBands(stack.select('mar'))\
+                 .addBands(stack.select('apr'))\
+                 .clip(county);\
+//count number of masked bands per pixel\
+//fall\
+var maskup = ndvimaxfall.unmask(1).clip(county);\
+var pos = maskup.lt(1).clip(county);\
+\
+var bandNames = pos.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return pos.select(name).rename('count').toByte();\
+\}));\
+var custom = ['black','red','yellow','green','cyan'];\
+var maskcount_fall = toCollection.sum().toByte().clip(county);\
+//Map.addLayer(maskcount_fall,\{min:0,max:4,palette:custom\},'fall');\
+var maskcount_mask_fall = maskcount_fall.gte(1).clip(county);\
+\
+//spring\
+var maskup = ndvimaxspring.unmask(1).clip(county);\
+var pos = maskup.lt(1).clip(county);\
+\
+var bandNames = pos.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return pos.select(name).rename('count').toByte();\
+\}));\
+var custom = ['black','red','yellow','green','cyan'];\
+var maskcount_spring = toCollection.sum().toByte().clip(county);\
+//Map.addLayer(maskcount_spring,\{min:0,max:4,palette:custom\},'spring');\
+var maskcount_mask_spring = maskcount_spring.gte(2).clip(county);\
+\
+//alt\
+var maskup = ndvimaxalt.unmask(1).clip(county);\
+var pos = maskup.lt(1).clip(county);\
+\
+var bandNames = pos.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return pos.select(name).rename('count').toByte();\
+\}));\
+var custom = ['black','red','yellow','green','cyan']\
+var maskcount_alt = toCollection.sum().toByte().clip(county);\
+//Map.addLayer(maskcount_alt,\{min:0,max:4,palette:custom\},'alt')\
+var maskcount_mask_alt = maskcount_alt.gte(3).clip(county);\
+\
+//nov\
+var maskup = ndvimaxnov.unmask(1).clip(county);\
+var pos = maskup.lt(1).clip(county);\
+\
+var bandNames = pos.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return pos.select(name).rename('count').toByte();\
+\}));\
+var custom = ['black','red','yellow','green','cyan'];\
+var maskcount_nov = toCollection.sum().toByte().clip(county);\
+//Map.addLayer(maskcount_nov,\{min:0,max:4,palette:custom\},'nov');\
+var maskcount_mask_nov = maskcount_nov.gte(1).clip(county);\
+\
+\
+//Zonal thresholds\
+//Z1\
+var d1 = \{nov: ee.Number(0.3),\
+          dec: ee.Number(0.265),\
+          jan: ee.Number(0.215),\
+          feb: ee.Number(0.215), \
+          mar: ee.Number(0.26), \
+          apr: ee.Number(0.295),\
+          may: ee.Number(0.5)\};\
+var Z1 = ee.Feature(vectors.filterMetadata('zone','equals',1).geometry(),d1);\
+//Z2\
+var d2 = \{nov: ee.Number(0.3),\
+          dec: ee.Number(0.265),\
+          jan: ee.Number(0.23),\
+          feb: ee.Number(0.23), \
+          mar: ee.Number(0.28), \
+          apr: ee.Number(0.3),\
+          may: ee.Number(0.5)\};\
+var Z2 = ee.Feature(vectors.filterMetadata('zone','equals',2).geometry(),d2);\
+//Z3\
+var d3 = \{nov: ee.Number(0.3), \
+          dec: ee.Number(0.265), \
+          jan: ee.Number(0.23), \
+          feb: ee.Number(0.23), \
+          mar: ee.Number(0.28), \
+          apr: ee.Number(0.3), \
+          may: ee.Number(0.525)\};\
+var Z3 = ee.Feature(vectors.filterMetadata('zone','equals',3).geometry(),d3);\
+//Z4\
+var d4 = \{nov: ee.Number(0.31), \
+          dec: ee.Number(0.27), \
+          jan: ee.Number(0.25), \
+          feb: ee.Number(0.25), \
+          mar: ee.Number(0.28), \
+          apr: ee.Number(0.3), \
+          may: ee.Number(0.525)\};\
+var Z4 = ee.Feature(vectors.filterMetadata('zone','equals',4).geometry(),d4);\
+//Z5\
+var d5 = \{nov: ee.Number(0.35), \
+          dec: ee.Number(0.3), \
+          jan: ee.Number(0.3), \
+          feb: ee.Number(0.28), \
+          mar: ee.Number(0.3), \
+          apr: ee.Number(0.35), \
+          may: ee.Number(0.55)\};\
+var Z5 = ee.Feature(vectors.filterMetadata('zone','equals',5).geometry(),d5);\
+//Z6\
+var d6 = \{nov: ee.Number(0.4), \
+          dec: ee.Number(0.375), \
+          jan: ee.Number(0.32), \
+          feb: ee.Number(0.325), \
+          mar: ee.Number(0.37),\
+          apr: ee.Number(0.5), \
+          may: ee.Number(0.6)\};\
+var Z6 = ee.Feature(vectors.filterMetadata('zone','equals',6).geometry(),d6);\
+//Z7\
+var d7 = \{nov: ee.Number(0.43), \
+          dec: ee.Number(0.43), \
+          jan: ee.Number(0.35), \
+          feb: ee.Number(0.4), \
+          mar: ee.Number(0.5), \
+          apr: ee.Number(0.625), \
+          may: ee.Number(0.725)\};\
+var Z7 = ee.Feature(vectors.filterMetadata('zone','equals',7).geometry(),d7);\
+//Z8\
+var d8 = \{nov: ee.Number(0.425), \
+          dec: ee.Number(0.45), \
+          jan: ee.Number(0.425), \
+          feb: ee.Number(0.425), \
+          mar: ee.Number(0.55), \
+          apr: ee.Number(0.6), \
+          may: ee.Number(0.75)\};\
+var Z8 = ee.Feature(vectors.filterMetadata('zone','equals',8).geometry(),d8);\
+//Z9\
+var d9 = \{nov: ee.Number(0.5), \
+          dec: ee.Number(0.55), \
+          jan: ee.Number(0.55), \
+          feb: ee.Number(0.55), \
+          mar: ee.Number(0.675), \
+          apr: ee.Number(0.775), \
+          may: ee.Number(0.8)\};\
+var Z9 = ee.Feature(vectors.filterMetadata('zone','equals',9).geometry(),d9);\
+\
+var feats = [Z1,Z2,Z3,Z4,Z5,Z6,Z7,Z8,Z9];\
+var fc = ee.FeatureCollection(feats);\
+\
+var prop = ['nov','dec','jan','feb','mar','apr','may'];\
+\
+var im = ee.ImageCollection(prop.map(function(p)\{\
+var layer = fc.reduceToImage(\{\
+    properties: [p],\
+    reducer: ee.Reducer.first()\
+\});\
+return layer;\
+\}));\
+\
+var fallthresh = im.toBands().select(['1_first','2_first'],\
+['bounded','bounded_1']);\
+\
+var springthresh = im.toBands().select(['3_first','4_first','5_first','6_first'],\
+['bounded','bounded_1','bounded_2','bounded_3']);\
+\
+var altthresh = im.toBands().select(['0_first','1_first','4_first','5_first'],\
+['bounded','bounded_1','bounded_2','bounded_3']);\
+\
+var novthresh = im.toBands().select(['0_first'],\
+['bounded']);\
+\
+var fallin = ndvimaxfall.multiply(maskcount_mask_fall).multiply(full_mask).unmask(0)\
+var springin = ndvimaxspring.multiply(maskcount_mask_spring).multiply(full_mask).unmask(0)\
+var altin = ndvimaxalt.multiply(maskcount_mask_alt).multiply(full_mask).unmask(0)\
+var novin = ndvimaxnov.multiply(maskcount_mask_nov).multiply(full_mask).unmask(0)\
+\
+var cc = fallin.gte(fallthresh);\
+\
+var bandNames = cc.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return cc.select(name).rename('thresh').toByte();\
+\}));\
+var fallsum = toCollection.sum().toByte();\
+\
+var cc = springin.gte(springthresh);\
+\
+var bandNames = cc.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return cc.select(name).rename('thresh').toByte();\
+\}));\
+var springsum = toCollection.sum().toByte();\
+\
+var cc = altin.gte(altthresh);\
+\
+var bandNames = cc.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return cc.select(name).rename('thresh').toByte();\
+\}));\
+var altsum = toCollection.sum().toByte();\
+\
+var cc = novin.gte(novthresh);\
+\
+var bandNames = cc.bandNames();\
+var toCollection = ee.ImageCollection.fromImages(bandNames.map(function(name)\{\
+  name = ee.String(name);\
+  return cc.select(name).rename('thresh').toByte();\
+\}));\
+var novsum = toCollection.sum().toByte();\
+\
+//NDVI Zones\
+//Z2\
+var ndviZ2 = ee.Feature(Zones.filterMetadata('zone','equals',2).geometry());\
+//Z4\
+var ndviZ4 = ee.Feature(Zones.filterMetadata('zone','equals',4).geometry());\
+//Z7\
+var ndviZ7 = ee.Feature(Zones.filterMetadata('zone','equals',7).geometry());\
+\
+var feats = [ndviZ2];\
+var zone2 = ee.FeatureCollection(feats);\
+\
+var feats = [ndviZ4];\
+var zone4 = ee.FeatureCollection(feats);\
+\
+var feats = [ndviZ7]\
+var zone7 = ee.FeatureCollection(feats);\
+\
+//var nov = novsum.gte(1).clip(state)\
+var fall = novsum.gte(1).and(fallsum.gte(1)).multiply(2).clip(state);\
+var spring = springsum.gte(2).clip(state);\
+var both = fall.and(spring).clip(state);\
+var alt = altsum.gte(3).multiply(6).clip(state);\
+var fullmap = fall.add(spring).add(alt).clip(state);\
+\
+var z2map = both.or(spring).or(alt).clip(zone2).gt(0);\
+var z4map = both.or(spring).or(alt).clip(zone4).gt(0);\
+var z7map = fullmap.clip(zone7).gt(0);\
+\
+var finalmap = z2map.blend(z4map).blend(z7map);\
+\
+//Map.addLayer(finalmap,\{min:0,max:1\});\
+\
+//var custom = ['black','green','red','cyan','black','black','magenta','blue','yellow','white','white'];\
+//Map.addLayer(fullmap,\{min:0,max:9,palette:custom\});\
+\
+\
+var reduce = finalmap.reduceRegions(\{\
+    collection: clu,\
+    reducer: ee.Reducer.mean(),\
+    scale: 90,\
+    crs: 'EPSG:4326',\
+    tileScale: 4\
+\});\
+\
+Export.table.toDrive(\{\
+  collection: reduce,\
+  description: 'Iowa_c2018',\
+  fileFormat: 'CSV',\
+  selectors: ['UNIQID','mean']\
+\});\
+\
+/*\
+Export.image.toDrive(\{\
+  image: finalmap,\
+  description: 'Iowa_c2019',\
+  scale: 90,\
+  region: state,\
+  maxPixels: 1e13,\
+  crs: 'EPSG:4326'\
+\});\
+}
