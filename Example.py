@@ -44,15 +44,8 @@ class ReferenceData:
 
     def load_data(self) -> pd.DataFrame:
         """
-        Load USDA NASS ag census data at county level and parse into pandas dataframe
-        Example values for practice arg: 'cover crops' and 'no till', which are converted to NASS labels with dict
-
-                                        'COVER CROP PLANTED, (EXCL CRP)',
-                                         'CONVENTIONAL TILLAGE',
-                                         'CONSERVATION TILLAGE, NO-TILL',
-                                         'CONSERVATION TILLAGE, (EXCL NO-TILL)'
-
-        Example value for year arg: '2012', '2017'
+        Description of loading function
+        param details...
         """
 
         print('Loading data...')
@@ -66,10 +59,9 @@ class ReferenceData:
     @staticmethod
     def calc_tot_acres(args) -> list:
         """
-        This function calculates total regen acres by model class and cdl class based on global variables results_path and
+        This function would calculat total acres by model class and cdl class based on global variables results_path and
         class_column.
-        :param county: list of counties to calculate total acreage
-        :return: returns a list of lists with county, total regen acres, total related cdl acres, cdl crop class, regen class, and year
+        :params...
         """
 
         #Function to loop through tables and sum acreages
@@ -88,7 +80,7 @@ class ReferenceData:
         elif self.dataset_name == 'foo3':
             return self.load_optis(option = option)
 
-data_obj = ReferenceData(attributes)
+data_obj = ReferenceData(attributes, kwargs = options)
 
 ##load data
 data = data_obj.load()
