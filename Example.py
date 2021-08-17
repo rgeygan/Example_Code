@@ -7,6 +7,7 @@ import attr
 
 GLOBAL_VAR = 'foo'
 
+
 ##Global function
 def counties(path: str):
     """
