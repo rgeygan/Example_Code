@@ -7,7 +7,6 @@ import attr
 
 GLOBAL_VAR = 'foo'
 
-
 ##Global function
 def counties(path: str):
     """
@@ -103,3 +102,4 @@ class TransformData:
 trans_obj = TransformData()
 
 new_data = trans_obj.transform()
+
